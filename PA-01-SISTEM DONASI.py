@@ -151,7 +151,7 @@ def tambah_donasi(current_user):
         else:
             break
 
-#PEMBAYARAN
+    #PEMBAYARAN
     if current_user["role"] == "Staff":
         metode = "Tunai (dicatat oleh Staff)"
         sisa_saldo = None
@@ -176,7 +176,7 @@ def tambah_donasi(current_user):
                 metode = "E-Wallet"
                 break
 
-#NYIMPAN DONASI
+    #NYIMPAN DONASI
     data.append({
         "username": current_user["username"],
         "nama": nama,
@@ -186,7 +186,7 @@ def tambah_donasi(current_user):
     })
     save_json(DONASI_FILE, data)
 
-#STRUK DONASI
+    #STRUK DONASI
     print("\n===== STRUK DONASI =====")
     print(f"Nama    : {nama}")
     print(f"Metode  : {metode}")
@@ -259,7 +259,24 @@ def edit_donasi(current_user):
                                 print(f"Jumlah harus antara Rp10.000 - Rp{MAX_DONASI:,}.")
                         except ValueError:
                             print("Jumlah harus angka.")
-                    d['lokasi'] = input(f"Lokasi ({d['lokasi']}): ") or d['lokasi']
+                    
+                    # Edit Lokasi (User)
+                    while True:
+                        for i, l in enumerate(LOKASI, start=1):
+                            print(f"{i}. {l}")
+                        pilih_lokasi = input(f"Pilih lokasi baru (1-{len(LOKASI)}) atau Enter untuk tidak mengubah: ").strip()
+                        if not pilih_lokasi:
+                            break
+                        try:
+                            idx = int(pilih_lokasi)
+                            if 1 <= idx <= len(LOKASI):
+                                d['lokasi'] = LOKASI[idx - 1]
+                                break
+                            else:
+                                print("Pilihan lokasi tidak valid.")
+                        except ValueError:
+                            print("Input tidak valid.")
+
                 save_json(DONASI_FILE, data)
                 print("Data donasi berhasil diperbarui.")
                 input("Tekan Enter untuk kembali...")
@@ -337,6 +354,111 @@ def cek_saldo(current_user):
             input("Tekan Enter untuk kembali...")
             return
 
+#CARI DONASI
+def cari_donasi(current_user):
+    clear_screen()
+    keyword = input("Masukkan nama donatur yang ingin dicari: ").strip().lower()
+    if not keyword:
+        print("Kata kunci pencarian tidak boleh kosong.")
+        input("Tekan Enter untuk kembali...")
+        return
+
+    data = load_json(DONASI_FILE)
+    data_pengguna = []
+
+    # Filter data berdasarkan role
+    if current_user["role"] == "User":
+        data_pengguna = [d for d in data if d.get("username") == current_user["username"]]
+    else:
+        data_pengguna = data # Staff bisa melihat semua
+
+    # Lakukan pencarian
+    hasil_pencarian = [d for d in data_pengguna if keyword in d.get("nama", "").lower()]
+
+    if not hasil_pencarian:
+        print(f"Donasi dengan nama yang mengandung '{keyword}' tidak ditemukan.")
+        input("Tekan Enter untuk kembali...")
+        return
+
+    # Tampilkan hasil menggunakan PrettyTable
+    print(f"=== HASIL PENCARIAN UNTUK '{keyword}' ===")
+    table = PrettyTable(["Nama Donatur", "Jumlah", "Metode", "Lokasi"])
+    total = 0
+    for d in hasil_pencarian:
+        jumlah_int = int(d.get("jumlah", 0))
+        total += jumlah_int
+        table.add_row([d.get("nama", "-"), f"Rp{jumlah_int:,}", d.get("metode", "-"), d.get("lokasi", "-")])
+    
+    print(table)
+    print(f"\nTotal Donasi Ditemukan: Rp{total:,}")
+    input("\nTekan Enter untuk kembali...")
+
+#URUTKAN DONASI
+def urutkan_donasi(current_user):
+    clear_screen()
+    data = load_json(DONASI_FILE)
+    data_pengguna = []
+
+    # Filter data berdasarkan role
+    if current_user["role"] == "User":
+        data_pengguna = [d for d in data if d.get("username") == current_user["username"]]
+    else:
+        data_pengguna = data # Staff bisa melihat semua
+
+    if not data_pengguna:
+        print("Tidak ada data donasi untuk diurutkan.")
+        input("Tekan Enter untuk kembali...")
+        return
+
+    print("Pilih kriteria pengurutan:")
+    print("1. Nama (A-Z)")
+    print("2. Nama (Z-A)")
+    print("3. Jumlah (Terkecil ke Terbesar)")
+    print("4. Jumlah (Terbesar ke Terkecil)")
+    print("5. Lokasi (A-Z)")
+    print("6. Lokasi (Z-A)")
+    pilihan = input("Pilih (1-6): ").strip()
+
+    data_terurut = []
+    judul = "Data Donasi"
+    
+    if pilihan == "1":
+        data_terurut = sorted(data_pengguna, key=lambda d: d.get("nama", "").lower())
+        judul = "Donasi Diurutkan Berdasarkan Nama (A-Z)"
+    elif pilihan == "2":
+        data_terurut = sorted(data_pengguna, key=lambda d: d.get("nama", "").lower(), reverse=True)
+        judul = "Donasi Diurutkan Berdasarkan Nama (Z-A)"
+    elif pilihan == "3":
+        data_terurut = sorted(data_pengguna, key=lambda d: int(d.get("jumlah", 0)))
+        judul = "Donasi Diurutkan Berdasarkan Jumlah (Terkecil)"
+    elif pilihan == "4":
+        data_terurut = sorted(data_pengguna, key=lambda d: int(d.get("jumlah", 0)), reverse=True)
+        judul = "Donasi Diurutkan Berdasarkan Jumlah (Terbesar)"
+    elif pilihan == "5":
+        data_terurut = sorted(data_pengguna, key=lambda d: d.get("lokasi", "").lower())
+        judul = "Donasi Diurutkan Berdasarkan Lokasi (A-Z)"
+    elif pilihan == "6":
+        data_terurut = sorted(data_pengguna, key=lambda d: d.get("lokasi", "").lower(), reverse=True)
+        judul = "Donasi Diurutkan Berdasarkan Lokasi (Z-A)"
+    else:
+        print("Pilihan tidak valid.")
+        input("Tekan Enter untuk kembali...")
+        return
+
+    # Tampilkan hasil
+    clear_screen()
+    print(f"=== {judul} ===")
+    table = PrettyTable(["Nama Donatur", "Jumlah", "Metode", "Lokasi"])
+    total = 0
+    for d in data_terurut:
+        jumlah_int = int(d.get("jumlah", 0))
+        total += jumlah_int
+        table.add_row([d.get("nama", "-"), f"Rp{jumlah_int:,}", d.get("metode", "-"), d.get("lokasi", "-")])
+    
+    print(table)
+    print(f"\nTotal Donasi Ditampilkan: Rp{total:,}")
+    input("\nTekan Enter untuk kembali...")
+
 #MENU USER
 def menu_user(user):
     while True:
@@ -346,6 +468,8 @@ def menu_user(user):
         print("2. Lihat Donasi")
         print("3. Top Up Saldo")
         print("4. Cek Saldo")
+        print("5. Cari Donasi")
+        print("6. Urutkan Donasi")
         print("0. Logout")
         pilih = input("Pilih menu: ")
         if pilih == "1":
@@ -356,6 +480,10 @@ def menu_user(user):
             topup(user)
         elif pilih == "4":
             cek_saldo(user)
+        elif pilih == "5":
+            cari_donasi(user)
+        elif pilih == "6":
+            urutkan_donasi(user)
         elif pilih == "0":
             break
         else:
@@ -371,6 +499,8 @@ def menu_staff(user):
         print("2. Lihat Donasi (Total)")
         print("3. Edit Donasi")
         print("4. Hapus Donasi")
+        print("5. Cari Donasi")
+        print("6. Urutkan Donasi")
         print("0. Logout")
         pilih = input("Pilih menu: ")
         if pilih == "1":
@@ -381,6 +511,10 @@ def menu_staff(user):
             edit_donasi(user)
         elif pilih == "4":
             hapus_donasi(user)
+        elif pilih == "5":
+            cari_donasi(user)
+        elif pilih == "6":
+            urutkan_donasi(user)
         elif pilih == "0":
             break
         else:
